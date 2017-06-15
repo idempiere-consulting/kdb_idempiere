@@ -17,21 +17,23 @@
 /** Generated Model - DO NOT CHANGE */
 package org.kanbanboard.model;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.util.Properties;
 import org.compiere.model.*;
+import org.compiere.util.Env;
 import org.compiere.util.KeyNamePair;
 
 /** Generated Model for KDB_KanbanBoard
  *  @author iDempiere (generated) 
- *  @version Release 3.1 - $Id$ */
+ *  @version Release 4.1 - $Id$ */
 public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persistent 
 {
 
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20151209L;
+	private static final long serialVersionUID = 20170614L;
 
     /** Standard Constructor */
     public X_KDB_KanbanBoard (Properties ctx, int KDB_KanbanBoard_ID, String trxName)
@@ -40,6 +42,8 @@ public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persis
       /** if (KDB_KanbanBoard_ID == 0)
         {
 			setAD_Table_ID (0);
+			setIsHtml (false);
+// N
 			setKDB_KanbanBoard_ID (0);
 			setName (null);
         } */
@@ -132,6 +136,43 @@ public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persis
 		return (String)get_Value(COLUMNNAME_Description);
 	}
 
+	/** Set Elapsed Time ms.
+		@param ElapsedTimeMS 
+		Elapsed Time in milli seconds
+	  */
+	public void setElapsedTimeMS (BigDecimal ElapsedTimeMS)
+	{
+		set_Value (COLUMNNAME_ElapsedTimeMS, ElapsedTimeMS);
+	}
+
+	/** Get Elapsed Time ms.
+		@return Elapsed Time in milli seconds
+	  */
+	public BigDecimal getElapsedTimeMS () 
+	{
+		BigDecimal bd = (BigDecimal)get_Value(COLUMNNAME_ElapsedTimeMS);
+		if (bd == null)
+			 return Env.ZERO;
+		return bd;
+	}
+
+	/** Set Group Key.
+		@param GroupValue 
+		Group Key
+	  */
+	public void setGroupValue (String GroupValue)
+	{
+		set_Value (COLUMNNAME_GroupValue, GroupValue);
+	}
+
+	/** Get Group Key.
+		@return Group Key
+	  */
+	public String getGroupValue () 
+	{
+		return (String)get_Value(COLUMNNAME_GroupValue);
+	}
+
 	/** Set Comment/Help.
 		@param Help 
 		Comment or Hint
@@ -147,6 +188,30 @@ public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persis
 	public String getHelp () 
 	{
 		return (String)get_Value(COLUMNNAME_Help);
+	}
+
+	/** Set HTML.
+		@param IsHtml 
+		Text has HTML tags
+	  */
+	public void setIsHtml (boolean IsHtml)
+	{
+		set_Value (COLUMNNAME_IsHtml, Boolean.valueOf(IsHtml));
+	}
+
+	/** Get HTML.
+		@return Text has HTML tags
+	  */
+	public boolean isHtml () 
+	{
+		Object oo = get_Value(COLUMNNAME_IsHtml);
+		if (oo != null) 
+		{
+			 if (oo instanceof Boolean) 
+				 return ((Boolean)oo).booleanValue(); 
+			return "Y".equals(oo);
+		}
+		return false;
 	}
 
 	public org.compiere.model.I_AD_PrintColor getKDB_BackgroundColor() throws RuntimeException
@@ -383,6 +448,23 @@ public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persis
 	public String getOrderByClause () 
 	{
 		return (String)get_Value(COLUMNNAME_OrderByClause);
+	}
+
+	/** Set Sequence.
+		@param Sequence Sequence	  */
+	public void setSequence (BigDecimal Sequence)
+	{
+		set_Value (COLUMNNAME_Sequence, Sequence);
+	}
+
+	/** Get Sequence.
+		@return Sequence	  */
+	public BigDecimal getSequence () 
+	{
+		BigDecimal bd = (BigDecimal)get_Value(COLUMNNAME_Sequence);
+		if (bd == null)
+			 return Env.ZERO;
+		return bd;
 	}
 
 	/** Set Sql WHERE.

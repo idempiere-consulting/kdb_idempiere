@@ -29,6 +29,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.adempiere.webui.LayoutUtils;
@@ -40,6 +42,7 @@ import org.adempiere.webui.component.Button;
 import org.adempiere.webui.component.Grid;
 import org.adempiere.webui.component.GridFactory;
 import org.adempiere.webui.component.Label;
+import org.adempiere.webui.component.ListItem;
 import org.adempiere.webui.component.Listbox;
 import org.adempiere.webui.component.ListboxFactory;
 import org.adempiere.webui.component.Menupopup;
@@ -56,12 +59,14 @@ import org.adempiere.webui.theme.ThemeManager;
 import org.compiere.model.MPInstance;
 import org.compiere.model.MProcess;
 import org.compiere.model.MSysConfig;
+import org.compiere.model.Query;
 import org.compiere.process.ProcessInfo;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
 import org.compiere.util.KeyNamePair;
 import org.compiere.util.Msg;
 import org.idempiere.apps.form.KanbanBoard;
+import org.kanbanboard.model.MKanbanBoard;
 import org.kanbanboard.model.MKanbanCard;
 import org.kanbanboard.model.MKanbanProcess;
 import org.kanbanboard.model.MKanbanStatus;
@@ -129,6 +134,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 
 	Grid kanbanPanel;
 	Vlayout centerVLayout;
+	
+	private List<MKanbanBoard> listKBanAuto = null;
 
 	public WKanbanBoard() {
 		super();
@@ -142,6 +149,9 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			windowNo = SessionManager.getAppDesktop().registerWindow(this);
 			dynList();
 			jbInit();
+			//iDempiereConsulting __ 15/06/2017 -- Automatic refresh-delay 
+			activeAutomatic();
+			
 			LayoutUtils.sendDeferLayoutEvent(mainLayout, 100);
 		}
 		catch (Exception ex)
@@ -232,9 +242,102 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			cbProcess.addItem(process);
 
 		cbProcess.addEventListener(Events.ON_SELECT, this);
+		
 
 	}   //  dynList
+	//iDempiereConsulting __ 15/06/2017 -- Automatic refresh-delay 
+	private void activeAutomatic() {
+		
+		int idKanbanList = 0;
+		int KDB_KanbanBoard_ID = automaticKanban();
+		int index = 0;
+		boolean okSelected = false;
+		
+		index = 0;
+		for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
+			idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
+			if(idKanbanList == KDB_KanbanBoard_ID){
+				okSelected = true;
+				break;
+			}
+			index = index+1;
+		}
+		
+		if(okSelected){
+			cbProcess.setSelectedIndex(index);
+			Events.sendEvent(cbProcess, new Event(Events.ON_SELECT, cbProcess));
+			okSelected = false;
+		}
+		
+		MKanbanBoard kanbanBoard = new MKanbanBoard(Env.getCtx(), KDB_KanbanBoard_ID, null);
+		//timer
+		setTimerBoard(kanbanBoard);
+		
+		
+		if(kanbanBoard.getGroupValue()!=null && kanbanBoard.getGroupValue().trim().length()>0){
+			String group = kanbanBoard.getGroupValue();
+			
+			String whereClause = MKanbanBoard.COLUMNNAME_GroupValue+"=? ";
+			listKBanAuto = new Query(Env.getCtx(), MKanbanBoard.Table_Name, whereClause, null)
+					.setClient_ID()
+					.setOnlyActiveRecords(true)
+					.setParameters(group)
+					.setOrderBy(MKanbanBoard.COLUMNNAME_Sequence)
+					.list();
+		}
+		
+	}
+
+	private void setTimerBoard(MKanbanBoard kanbanBoard) {
+		if(kanbanBoard.getElapsedTimeMS()!=null){
+			if(timer!= null){
+				timer.stop();
+				timer.setDelay(kanbanBoard.getElapsedTimeMS().intValue());
+				timer.start();
+			}
+			else{
+				timer = new Timer();
+				timer.setDelay(kanbanBoard.getElapsedTimeMS().intValue());
+				timer.addEventListener(Events.ON_TIMER, this);
+				timer.setRepeats(true);
+				timer.start();
+				timer.setVisible(false);
+				centerVLayout.appendChild(timer);
+			}
+		}
+		
+	}
 	
+	private void nextIdKanbanAuto(){
+		
+		int ind = 0;
+		for (MKanbanBoard mKanbanBoard : listKBanAuto) {
+			try{
+				if(mKanbanBoard.getKDB_KanbanBoard_ID()==kanbanBoardId){
+					kanbanBoardId = listKBanAuto.get(ind+1).getKDB_KanbanBoard_ID();
+					break;
+				}
+			}catch (Exception e) {
+				kanbanBoardId = listKBanAuto.get(0).getKDB_KanbanBoard_ID();
+				break;
+			}
+			ind++;
+		}
+		
+		int index = 0;
+		int idKanbanList = 0;
+		for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
+			idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
+			if(idKanbanList == kanbanBoardId){
+				cbProcess.setSelectedIndex(index);
+				break;
+			}
+			index = index+1;
+		}
+		
+	}
+	//iDempiereConsulting __ 15/06/2017 
+
 	/**
 	 * Load info process for Kanban Board
 	 */
@@ -733,6 +836,10 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			//Auto refresh
 			if (kanbanBoardId != -1) {
 				refreshBoard();
+				
+				//iDempiereConsulting __ 15/06/2017 -- Automatic refresh-delay 
+				nextIdKanbanAuto();
+				
 				repaintGrid();
 			}
 		}

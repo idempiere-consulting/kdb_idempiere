@@ -23,7 +23,7 @@ import org.compiere.util.KeyNamePair;
 
 /** Generated Interface for KDB_KanbanBoard
  *  @author iDempiere (generated) 
- *  @version Release 3.1
+ *  @version Release 4.1
  */
 @SuppressWarnings("all")
 public interface I_KDB_KanbanBoard 
@@ -32,7 +32,7 @@ public interface I_KDB_KanbanBoard
     /** TableName=KDB_KanbanBoard */
     public static final String Table_Name = "KDB_KanbanBoard";
 
-    /** AD_Table_ID=1000029 */
+    /** AD_Table_ID=1000051 */
     public static final int Table_ID = MTable.getTable_ID(Table_Name);
 
     KeyNamePair Model = new KeyNamePair(Table_ID, Table_Name);
@@ -117,6 +117,32 @@ public interface I_KDB_KanbanBoard
 	  */
 	public String getDescription();
 
+    /** Column name ElapsedTimeMS */
+    public static final String COLUMNNAME_ElapsedTimeMS = "ElapsedTimeMS";
+
+	/** Set Elapsed Time ms.
+	  * Elapsed Time in milli seconds
+	  */
+	public void setElapsedTimeMS (BigDecimal ElapsedTimeMS);
+
+	/** Get Elapsed Time ms.
+	  * Elapsed Time in milli seconds
+	  */
+	public BigDecimal getElapsedTimeMS();
+
+    /** Column name GroupValue */
+    public static final String COLUMNNAME_GroupValue = "GroupValue";
+
+	/** Set Group Key.
+	  * Group Key
+	  */
+	public void setGroupValue (String GroupValue);
+
+	/** Get Group Key.
+	  * Group Key
+	  */
+	public String getGroupValue();
+
     /** Column name Help */
     public static final String COLUMNNAME_Help = "Help";
 
@@ -142,6 +168,19 @@ public interface I_KDB_KanbanBoard
 	  * The record is active in the system
 	  */
 	public boolean isActive();
+
+    /** Column name IsHtml */
+    public static final String COLUMNNAME_IsHtml = "IsHtml";
+
+	/** Set HTML.
+	  * Text has HTML tags
+	  */
+	public void setIsHtml (boolean IsHtml);
+
+	/** Get HTML.
+	  * Text has HTML tags
+	  */
+	public boolean isHtml();
 
     /** Column name KDB_BackgroundColor_ID */
     public static final String COLUMNNAME_KDB_BackgroundColor_ID = "KDB_BackgroundColor_ID";
@@ -276,6 +315,15 @@ public interface I_KDB_KanbanBoard
 	  * Fully qualified ORDER BY clause
 	  */
 	public String getOrderByClause();
+
+    /** Column name Sequence */
+    public static final String COLUMNNAME_Sequence = "Sequence";
+
+	/** Set Sequence	  */
+	public void setSequence (BigDecimal Sequence);
+
+	/** Get Sequence	  */
+	public BigDecimal getSequence();
 
     /** Column name Updated */
     public static final String COLUMNNAME_Updated = "Updated";

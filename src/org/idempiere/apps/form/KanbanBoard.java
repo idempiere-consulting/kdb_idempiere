@@ -37,6 +37,7 @@ import java.util.logging.Level;
 
 import org.compiere.model.MTable;
 import org.compiere.model.PO;
+import org.compiere.model.Query;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
@@ -101,7 +102,37 @@ public class KanbanBoard {
 		}
 		return list;
 	}
+	
+	//iDempiereConsulting __ 14/06/2017 -- Process aperti automaticamente in base all'utente loggato      
+	public int automaticKanban(){
+		String sql = null;
+		int kanbanAutoID=0;
+		boolean baseLanguage = Env.isBaseLanguage(Env.getCtx(), MKanbanBoard.Table_Name);
+		if (baseLanguage){
+			sql = "SELECT k.KDB_KanbanBoard_ID, k.Name "
+					+ "FROM KDB_KanbanBoard k "
+					+ "WHERE k.AD_Client_ID IN (0, ?) AND k.IsActive='Y' "
+					+ "AND k.KDB_KanbanBoard_ID IN (SELECT KDB_KanbanBoard_ID FROM KDB_KanbanControlAccess WHERE AD_Role_ID=?) "
+					+ "AND KDB_KanbanBoard_ID IN (SELECT KDB_KanbanBoard_ID FROM KDB_AutomaticControl WHERE AD_User_ID = ?) "
+					+ "ORDER BY k.Name";
 
+			kanbanAutoID = DB.getSQLValue(null, sql, Env.getAD_Client_ID(Env.getCtx()), Env.getAD_Role_ID(Env.getCtx()), Env.getAD_User_ID(Env.getCtx()));
+		}
+		else{
+			sql = "SELECT k.KDB_KanbanBoard_ID, kt.Name "
+					+ "FROM KDB_KanbanBoard k JOIN KDB_KanbanBoard_Trl kt ON (k.KDB_KanbanBoard_ID=kt.KDB_KanbanBoard_ID) "
+					+ "WHERE k.AD_Client_ID IN (0, ?) AND k.IsActive='Y' "
+					+ "AND k.KDB_KanbanBoard_ID IN (SELECT KDB_KanbanBoard_ID FROM KDB_KanbanControlAccess WHERE AD_Role_ID=?) "
+					+ "AND KDB_KanbanBoard_ID IN (SELECT KDB_KanbanBoard_ID FROM KDB_AutomaticControl WHERE AD_User_ID = ?) "
+					+ "AND kt.AD_Language=? "
+					+ "ORDER BY kt.Name";
+			
+			kanbanAutoID = DB.getSQLValue(null, sql, Env.getAD_Client_ID(Env.getCtx()), Env.getAD_Role_ID(Env.getCtx()), Env.getAD_User_ID(Env.getCtx()));
+		}
+		return kanbanAutoID;
+	}
+	//iDempiereConsulting __ 14/06/2017 
+	
 	public boolean isReadWrite(){
 		if(isReadWrite==null){
 			String sql = "SELECT isreadwrite FROM KDB_KanbanControlAccess " +
