@@ -35,8 +35,10 @@ public class KBFormFactory implements IFormFactory{
 	@Override
 	public ADForm newFormInstance(String formName) {
 
-		if (WKanbanBoard.class.getName().equals(formName))
-			return new WKanbanBoard().getForm();
+		if (formName.startsWith(WKanbanBoard.class.getName())){
+			//iDempiereConsulting __ 15/06/2017 -- [Automatic refresh-delay] Contains the ID of the form I want to open 
+			return new WKanbanBoard(formName).getForm();
+		}
 		else if (WKanbanStatus.class.getName().equals(formName))
 			return new WKanbanStatus().getForm();
 

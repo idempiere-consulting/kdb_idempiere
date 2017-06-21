@@ -66,6 +66,7 @@ import org.compiere.util.Env;
 import org.compiere.util.KeyNamePair;
 import org.compiere.util.Msg;
 import org.idempiere.apps.form.KanbanBoard;
+import org.kanbanboard.model.MKanbanAutoControl;
 import org.kanbanboard.model.MKanbanBoard;
 import org.kanbanboard.model.MKanbanCard;
 import org.kanbanboard.model.MKanbanProcess;
@@ -135,10 +136,14 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 	Grid kanbanPanel;
 	Vlayout centerVLayout;
 	
+	private int m_adFormID = 0;
 	private List<MKanbanBoard> listKBanAuto = null;
 
-	public WKanbanBoard() {
+	public WKanbanBoard(String nameClass_ID) {
 		super();
+		//iDempiereConsulting __ 15/06/2017 -- [Automatic refresh-delay] ID of the form I want to open 
+		m_adFormID= Integer.valueOf(nameClass_ID.split("=")[1]);
+		
 		initForm();
 	}
 
@@ -250,46 +255,64 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 		
 		int idKanbanList = 0;
 		int KDB_KanbanBoard_ID = automaticKanban();
-		int index = 0;
-		boolean okSelected = false;
 		
-		index = 0;
-		for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
-			idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
-			if(idKanbanList == KDB_KanbanBoard_ID){
-				okSelected = true;
-				break;
-			}
-			index = index+1;
-		}
-		
-		if(okSelected){
-			cbProcess.setSelectedIndex(index);
-			Events.sendEvent(cbProcess, new Event(Events.ON_SELECT, cbProcess));
-			okSelected = false;
-		}
-		
-		MKanbanBoard kanbanBoard = new MKanbanBoard(Env.getCtx(), KDB_KanbanBoard_ID, null);
-		//timer
-		setTimerBoard(kanbanBoard);
-		
-		
-		if(kanbanBoard.getGroupValue()!=null && kanbanBoard.getGroupValue().trim().length()>0){
-			String group = kanbanBoard.getGroupValue();
-			
-			String whereClause = MKanbanBoard.COLUMNNAME_GroupValue+"=? ";
-			listKBanAuto = new Query(Env.getCtx(), MKanbanBoard.Table_Name, whereClause, null)
+		if(KDB_KanbanBoard_ID>0)
+		{
+			MKanbanAutoControl kbAuto = new Query(Env.getCtx(), MKanbanAutoControl.Table_Name, "KDB_KanbanBoard_ID=? AND AD_USER_ID=?", null)
 					.setClient_ID()
 					.setOnlyActiveRecords(true)
-					.setParameters(group)
-					.setOrderBy(MKanbanBoard.COLUMNNAME_Sequence)
-					.list();
+					.setParameters(KDB_KanbanBoard_ID, Env.getAD_User_ID(Env.getCtx()))
+					.first();
+			if(kbAuto.getAD_Form_ID()!=m_adFormID)
+				KDB_KanbanBoard_ID = -1;
+			
+		}
+		
+		if(KDB_KanbanBoard_ID>0)
+		{
+			
+			int index = 0;
+			boolean okSelected = false;
+			
+			index = 0;
+			for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
+				idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
+				if(KDB_KanbanBoard_ID !=-1 && idKanbanList == KDB_KanbanBoard_ID){
+					okSelected = true;
+					break;
+				}
+				index = index+1;
+			}
+			
+			if(okSelected){
+				cbProcess.setSelectedIndex(index);
+				Events.sendEvent(cbProcess, new Event(Events.ON_SELECT, cbProcess));
+				okSelected = false;
+			}
+			
+			
+			MKanbanBoard kanbanBoard = new MKanbanBoard(Env.getCtx(), KDB_KanbanBoard_ID, null);
+			//timer
+			setTimerBoard(kanbanBoard);
+			
+			
+			if(kanbanBoard.getGroupValue()!=null && kanbanBoard.getGroupValue().trim().length()>0){
+				String group = kanbanBoard.getGroupValue();
+				
+				String whereClause = MKanbanBoard.COLUMNNAME_GroupValue+"=? ";
+				listKBanAuto = new Query(Env.getCtx(), MKanbanBoard.Table_Name, whereClause, null)
+						.setClient_ID()
+						.setOnlyActiveRecords(true)
+						.setParameters(group)
+						.setOrderBy(MKanbanBoard.COLUMNNAME_Sequence)
+						.list();
+			}
 		}
 		
 	}
 
 	private void setTimerBoard(MKanbanBoard kanbanBoard) {
-		if(kanbanBoard.getElapsedTimeMS()!=null){
+		if(kanbanBoard.getKDB_KanbanBoard_ID()>0 && kanbanBoard.getElapsedTimeMS()!=null && kanbanBoard.getElapsedTimeMS().intValue()>0){
 			if(timer!= null){
 				timer.stop();
 				timer.setDelay(kanbanBoard.getElapsedTimeMS().intValue());
@@ -311,30 +334,31 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 	private void nextIdKanbanAuto(){
 		
 		int ind = 0;
-		for (MKanbanBoard mKanbanBoard : listKBanAuto) {
-			try{
-				if(mKanbanBoard.getKDB_KanbanBoard_ID()==kanbanBoardId){
-					kanbanBoardId = listKBanAuto.get(ind+1).getKDB_KanbanBoard_ID();
+		if(listKBanAuto!=null){
+			for (MKanbanBoard mKanbanBoard : listKBanAuto) {
+				try{
+					if(mKanbanBoard.getKDB_KanbanBoard_ID()==kanbanBoardId){
+						kanbanBoardId = listKBanAuto.get(ind+1).getKDB_KanbanBoard_ID();
+						break;
+					}
+				}catch (Exception e) {
+					kanbanBoardId = listKBanAuto.get(0).getKDB_KanbanBoard_ID();
 					break;
 				}
-			}catch (Exception e) {
-				kanbanBoardId = listKBanAuto.get(0).getKDB_KanbanBoard_ID();
-				break;
+				ind++;
 			}
-			ind++;
-		}
-		
-		int index = 0;
-		int idKanbanList = 0;
-		for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
-			idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
-			if(idKanbanList == kanbanBoardId){
-				cbProcess.setSelectedIndex(index);
-				break;
+			
+			int index = 0;
+			int idKanbanList = 0;
+			for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
+				idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
+				if(idKanbanList == kanbanBoardId){
+					cbProcess.setSelectedIndex(index);
+					break;
+				}
+				index = index+1;
 			}
-			index = index+1;
 		}
-		
 	}
 	//iDempiereConsulting __ 15/06/2017 
 
@@ -359,6 +383,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			northPanelHbox.removeChild(boardButtonsDiv);
 			boardButtonsDiv = null;
 		}
+		
 
 		if( getNumberOfProcesses() > 0  && getProcesses() != null ){
 			//Fill the lists - (Status,board,card) process

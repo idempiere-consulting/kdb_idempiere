@@ -530,16 +530,16 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 	@Override
 	protected boolean beforeSave(boolean newRecord) {
 		// Check if it is a valid priority rule
-		String priorityRule = getKDB_PrioritySQL();
-
-		if (priorityRule != null) {
-			String sql = "Select "+priorityRule+" FROM "+getAD_Table().getTableName();
-
-			if (DB.getSQLValue(get_TrxName(), sql) == -1) {
-				log.saveError("Error", Msg.getMsg(Env.getCtx(), "KDB_InvalidPriority"));
-				return false;
-			}
-		}
+//		String priorityRule = getKDB_PrioritySQL();
+//
+//		if (priorityRule != null) {
+//			String sql = "Select "+priorityRule+" FROM "+getAD_Table().getTableName();
+//
+//			if (DB.getSQLValue(get_TrxName(), sql) == -1) {
+//				log.saveError("Error", Msg.getMsg(Env.getCtx(), "KDB_InvalidPriority"));
+//				return false;
+//			}
+//		}
 
 		return super.beforeSave(newRecord);
 	}
