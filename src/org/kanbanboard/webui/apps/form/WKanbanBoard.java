@@ -23,7 +23,7 @@
  * - Diego Ruiz - Universidad Distrital Francisco Jose de Caldas       *
  **********************************************************************/
 
-package org.idempiere.webui.apps.form;
+package org.kanbanboard.webui.apps.form;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -65,7 +65,7 @@ import org.compiere.util.DB;
 import org.compiere.util.Env;
 import org.compiere.util.KeyNamePair;
 import org.compiere.util.Msg;
-import org.idempiere.apps.form.KanbanBoard;
+import org.kanbanboard.apps.form.KanbanBoard;
 import org.kanbanboard.model.MKanbanAutoControl;
 import org.kanbanboard.model.MKanbanBoard;
 import org.kanbanboard.model.MKanbanCard;
