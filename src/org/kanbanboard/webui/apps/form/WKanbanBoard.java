@@ -295,7 +295,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			boolean okSelected = false;
 			
 			index = 0;
-			for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
+			for (Iterator iterator = kanbanListbox.getItems().iterator(); iterator.hasNext();) {
 				idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
 				if(KDB_KanbanBoard_ID !=-1 && idKanbanList == KDB_KanbanBoard_ID){
 					okSelected = true;
@@ -305,8 +305,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			}
 			
 			if(okSelected){
-				cbProcess.setSelectedIndex(index);
-				Events.sendEvent(cbProcess, new Event(Events.ON_SELECT, cbProcess));
+				kanbanListbox.setSelectedIndex(index);
+				Events.sendEvent(kanbanListbox, new Event(Events.ON_SELECT, kanbanListbox));
 				okSelected = false;
 			}
 			
@@ -370,10 +370,10 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			
 			int index = 0;
 			int idKanbanList = 0;
-			for (Iterator iterator = cbProcess.getItems().iterator(); iterator.hasNext();) {
+			for (Iterator iterator = kanbanListbox.getItems().iterator(); iterator.hasNext();) {
 				idKanbanList= (Integer)  ((ListItem)iterator.next()).getValue();
 				if(idKanbanList == kanbanBoardId){
-					cbProcess.setSelectedIndex(index);
+					kanbanListbox.setSelectedIndex(index);
 					break;
 				}
 				index = index+1;
