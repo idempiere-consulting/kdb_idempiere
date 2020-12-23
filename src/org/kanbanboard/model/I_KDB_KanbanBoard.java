@@ -23,7 +23,7 @@ import org.compiere.util.KeyNamePair;
 
 /** Generated Interface for KDB_KanbanBoard
  *  @author iDempiere (generated) 
- *  @version Release 4.1
+ *  @version Release 6.2
  */
 @SuppressWarnings("all")
 public interface I_KDB_KanbanBoard 
@@ -32,7 +32,7 @@ public interface I_KDB_KanbanBoard
     /** TableName=KDB_KanbanBoard */
     public static final String Table_Name = "KDB_KanbanBoard";
 
-    /** AD_Table_ID=1000051 */
+    /** AD_Table_ID=1000015 */
     public static final int Table_ID = MTable.getTable_ID(Table_Name);
 
     KeyNamePair Model = new KeyNamePair(Table_ID, Table_Name);
@@ -193,6 +193,19 @@ public interface I_KDB_KanbanBoard
 
 	public org.compiere.model.I_AD_PrintColor getKDB_BackgroundColor() throws RuntimeException;
 
+    /** Column name KDB_CardTooltip */
+    public static final String COLUMNNAME_KDB_CardTooltip = "KDB_CardTooltip";
+
+	/** Set Kanban Card Tooltip.
+	  * Message shown when the user hovers the pointer over a card
+	  */
+	public void setKDB_CardTooltip (String KDB_CardTooltip);
+
+	/** Get Kanban Card Tooltip.
+	  * Message shown when the user hovers the pointer over a card
+	  */
+	public String getKDB_CardTooltip();
+
     /** Column name KDB_ColumnList_ID */
     public static final String COLUMNNAME_KDB_ColumnList_ID = "KDB_ColumnList_ID";
 
@@ -276,6 +289,19 @@ public interface I_KDB_KanbanBoard
 	  * Standard Column Width
 	  */
 	public int getKDB_StdColumnWidth();
+
+    /** Column name KDB_SummaryMsg */
+    public static final String COLUMNNAME_KDB_SummaryMsg = "KDB_SummaryMsg";
+
+	/** Set Summary Message.
+	  * Message that will be present on every state of the Kanban Board
+	  */
+	public void setKDB_SummaryMsg (String KDB_SummaryMsg);
+
+	/** Get Summary Message.
+	  * Message that will be present on every state of the Kanban Board
+	  */
+	public String getKDB_SummaryMsg();
 
     /** Column name KDB_SummarySQL */
     public static final String COLUMNNAME_KDB_SummarySQL = "KDB_SummarySQL";

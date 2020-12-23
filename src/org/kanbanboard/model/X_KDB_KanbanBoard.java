@@ -26,14 +26,14 @@ import org.compiere.util.KeyNamePair;
 
 /** Generated Model for KDB_KanbanBoard
  *  @author iDempiere (generated) 
- *  @version Release 4.1 - $Id$ */
+ *  @version Release 6.2 - $Id$ */
 public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persistent 
 {
 
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20170614L;
+	private static final long serialVersionUID = 20191002L;
 
     /** Standard Constructor */
     public X_KDB_KanbanBoard (Properties ctx, int KDB_KanbanBoard_ID, String trxName)
@@ -239,6 +239,23 @@ public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persis
 		return ii.intValue();
 	}
 
+	/** Set Kanban Card Tooltip.
+		@param KDB_CardTooltip 
+		Message shown when the user hovers the pointer over a card
+	  */
+	public void setKDB_CardTooltip (String KDB_CardTooltip)
+	{
+		set_Value (COLUMNNAME_KDB_CardTooltip, KDB_CardTooltip);
+	}
+
+	/** Get Kanban Card Tooltip.
+		@return Message shown when the user hovers the pointer over a card
+	  */
+	public String getKDB_CardTooltip () 
+	{
+		return (String)get_Value(COLUMNNAME_KDB_CardTooltip);
+	}
+
 	public org.compiere.model.I_AD_Column getKDB_ColumnList() throws RuntimeException
     {
 		return (org.compiere.model.I_AD_Column)MTable.get(getCtx(), org.compiere.model.I_AD_Column.Table_Name)
@@ -389,6 +406,23 @@ public class X_KDB_KanbanBoard extends PO implements I_KDB_KanbanBoard, I_Persis
 		if (ii == null)
 			 return 0;
 		return ii.intValue();
+	}
+
+	/** Set Summary Message.
+		@param KDB_SummaryMsg 
+		Message that will be present on every state of the Kanban Board
+	  */
+	public void setKDB_SummaryMsg (String KDB_SummaryMsg)
+	{
+		set_Value (COLUMNNAME_KDB_SummaryMsg, KDB_SummaryMsg);
+	}
+
+	/** Get Summary Message.
+		@return Message that will be present on every state of the Kanban Board
+	  */
+	public String getKDB_SummaryMsg () 
+	{
+		return (String)get_Value(COLUMNNAME_KDB_SummaryMsg);
 	}
 
 	/** Set Summary SQL.

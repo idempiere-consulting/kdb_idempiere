@@ -28,6 +28,11 @@ package org.kanbanboard.model;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ChoiceFormat;
+import java.text.DecimalFormat;
+import java.text.Format;
+import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,15 +40,20 @@ import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
 
+import org.adempiere.exceptions.DBException;
+import org.compiere.model.MColumn;
+import org.compiere.model.MTable;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
 
 
-public class MKanbanStatus extends X_KDB_KanbanStatus{
+public class MKanbanStatus extends X_KDB_KanbanStatus {
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 3464371316345451989L;
+	public static final String QUEUE_CARDS_BY_NUMBER = "C";
+	public static final String STATUS_RECORDS_IDS = "@STATUSRECORDS_ID@";
 
 	private MKanbanBoard      kanbanBoard;
 	private String            printableName;
@@ -124,6 +134,15 @@ public class MKanbanStatus extends X_KDB_KanbanStatus{
 		}
 	}
 	
+	public void clearCards() {
+		records.clear();
+		queuedRecords.clear();
+		isExceed = false;
+		cardNumber = 0;
+		queuedCardNumber = 0;
+		totalCards = 0;
+	}
+	
 	public void addQueuedRecord(MKanbanCard card) {
 		queuedRecords.add(card);
 	}
@@ -149,8 +168,7 @@ public class MKanbanStatus extends X_KDB_KanbanStatus{
 	}
 
 	public void orderCards() {
-		if (kanbanBoard.getOrderByClause() == null)
-		{
+		if (kanbanBoard.getOrderByClause() == null) {
 			Collections.sort(records, Collections.reverseOrder(new Comparator<MKanbanCard>() {
 				@Override
 				public int compare(MKanbanCard card1, MKanbanCard card2) {
@@ -205,7 +223,7 @@ public class MKanbanStatus extends X_KDB_KanbanStatus{
 	}
 
 	public boolean isExceed() {
-		if(getRecords().size() > getMaxNumCards())
+		if (getRecords().size() > getMaxNumCards())
 			isExceed = true;
 		return isExceed;
 	}
@@ -230,7 +248,7 @@ public class MKanbanStatus extends X_KDB_KanbanStatus{
 	}
 
 	public boolean hasMoreQueuedCards() {
-		if(!hasQueue() || queuedCardNumber>queuedRecords.size()-1)
+		if (!hasQueue() || queuedCardNumber > queuedRecords.size()-1)
 			return false;
 		return true;
 	}
@@ -241,51 +259,148 @@ public class MKanbanStatus extends X_KDB_KanbanStatus{
 		return card;
 	}
 	
-	public String getSummary(String summarySql, int numberOfColumns) {		
-		
-		String result = null;
+	public String getSummary() {
 
-		if (summarySql != null) {		
-			int j = summarySql.indexOf("@KanbanStatus@");		
+		String summarySql = kanbanBoard.getSummarySql();
+
+		if (summarySql != null) {
+			//Replace @KanbanStatus@ with the proper value
+			int j = summarySql.indexOf("@KanbanStatus@");
 			if (j > -1) {
 				summarySql = summarySql.replaceAll("@KanbanStatus@", "'" + getStatusValue() + "'");		
 			}
-			PreparedStatement pstmt = null;
-			ResultSet rs = null;
-			try
-			{
-				pstmt = DB.prepareStatement(summarySql, get_TrxName());
-				pstmt.setInt(1, Env.getAD_Client_ID(Env.getCtx()));
-				rs = pstmt.executeQuery();
-				StringBuilder resultQuery = new StringBuilder();
-
-				if (rs.next()) {
-					int column = 1;
-					String value;
-					while (column <= numberOfColumns)
-					{
-						value = rs.getString(column);
-						if (value != null) {
-							resultQuery.append(value);
-							resultQuery.append(" /");
-						}
-						column++;
-					}
-					result = resultQuery.toString();
-					if (result.length() > 0 && result.charAt(result.length()-1) == '/')
-						result = result.substring(0, result.length()-1);
+			
+			//Replace @KanbanStatus@ with the proper value
+			j = summarySql.indexOf(STATUS_RECORDS_IDS);
+			if (j > -1) {
+				summarySql = summarySql.replaceAll(STATUS_RECORDS_IDS, getStatusRecordsID());		
+			}
+			
+			//Parse context variables if existing
+			if (summarySql.indexOf("@") >= 0) {
+				summarySql = Env.parseContext(Env.getCtx(), 0, summarySql, false, false);
+				if (summarySql.length() == 0) {
+					return null;
 				}
 			}
-			catch (SQLException e){
-				log.log(Level.SEVERE, summarySql, e);
+			
+			MessageFormat mf = null;
+			String msgValue = kanbanBoard.get_Translation(MKanbanBoard.COLUMNNAME_KDB_SummaryMsg);
+			try {
+				mf = new MessageFormat(msgValue, Env.getLanguage(getCtx()).getLocale());
+			} catch (Exception e) {
+				log.log(Level.SEVERE, msgValue, e);
 			}
-			finally{
+			
+			if (mf == null)
+				return null;
+
+			Format[] fmts = mf.getFormatsByArgumentIndex();
+			Object[] arguments = new Object[fmts.length];
+			boolean filled = false;
+
+			PreparedStatement pstmt = null;
+			ResultSet rs = null;
+			try {
+				pstmt = DB.prepareStatement(summarySql, get_TrxName());
+				rs = pstmt.executeQuery();
+				if (rs.next()) {
+					for (int idx = 0; idx < fmts.length; idx++) {
+						Format fmt = fmts[idx];
+						Object obj;
+						if (fmt instanceof DecimalFormat || fmt instanceof ChoiceFormat) {
+							obj = rs.getDouble(idx+1);
+						} else if (fmt instanceof SimpleDateFormat) {
+							obj = rs.getTimestamp(idx+1);
+						} else {
+							obj = rs.getString(idx+1);
+						}
+						arguments[idx] = obj;
+					}
+					filled = true;
+				}
+			} catch (SQLException e) {
+				log.log(Level.SEVERE, summarySql, e);
+			} finally{
 				DB.close(rs, pstmt);
 				rs = null;
 				pstmt = null;
 			}
+			if (filled)
+				return mf.format(arguments);
 		}
-		return result;
+		return null;
 	} //getSummary
+	
+	private String getStatusRecordsID() {
+		String ids = "";
+
+		if ((getRecords() != null && !getRecords().isEmpty()) ||
+				(getQueuedRecords() != null && !getQueuedRecords().isEmpty())) {
+
+			StringBuilder recordIds = new StringBuilder();
+
+			for (MKanbanCard record : getRecords())
+				recordIds.append("'" + record.getRecordID() + "',");
+
+			for (MKanbanCard queuedRecord : getQueuedRecords())
+				recordIds.append("'" + queuedRecord.getRecordID() + "',");
+
+			ids = recordIds.toString();
+			//Remove last comma
+			if (ids.length() > 0 && ids.charAt(ids.length()-1) == ',')
+				ids = ids.substring(0, ids.length()-1);
+		}
+
+		return ids;
+	}
+	
+	public void setSQLQueuedCards() {
+		if (hasQueue() && !QUEUE_CARDS_BY_NUMBER.equals(getSQLStatement())) {
+			StringBuilder sql = new StringBuilder();
+			sql.append("SELECT ");
+
+			MTable table = kanbanBoard.getTable();
+			MColumn column = kanbanBoard.getStatusColumn();
+			
+			String keys[] = table.getKeyColumns();
+			sql.append(keys[0]); 
+			sql.append(" FROM " + table.getTableName());
+
+			StringBuilder whereClause = new StringBuilder();
+			whereClause.append(" WHERE ");
+
+			if (kanbanBoard.getWhereClause() != null)
+				whereClause.append(kanbanBoard.getWhereClause() + " AND ");
+
+			whereClause.append(column.getColumnName() + " = ");
+			
+			if (kanbanBoard.isRefList())
+				whereClause.append("'" + getStatusValue() + "'");
+			else
+				whereClause.append(getStatusValue());
+
+			whereClause.append(" AND AD_Client_ID IN (0, ?)");
+			whereClause.append(" AND " + getSQLStatement());
+			
+			sql.append(whereClause.toString());
+			log.info("Queue SQL" + sql.toString());
+
+			try {
+				String sqlparsed = Env.parseContext(getCtx(), 0, sql.toString(), false);
+				int[] ids = DB.getIDsEx(get_TrxName(), sqlparsed, Env.getAD_Client_ID(Env.getCtx()));
+				for (int id : ids) {
+					MKanbanCard card = getCard(id);
+					if (card != null) {
+						removeRecord(card);
+						addQueuedRecord(card);
+						card.setQueued(true);
+					}
+				}
+			} catch (DBException e) {
+				log.log(Level.SEVERE, sql.toString(), e);
+			}
+		}
+	} // setSQLQueuedCards
 
 }
