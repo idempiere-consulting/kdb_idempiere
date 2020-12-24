@@ -29,7 +29,6 @@ import java.sql.ResultSet;
 import java.util.Properties;
 
 import org.compiere.model.MProcess;
-import org.compiere.util.Env;
 
 public class MKanbanProcess extends X_KDB_KanbanProcess{
 
@@ -45,7 +44,7 @@ public class MKanbanProcess extends X_KDB_KanbanProcess{
 	}
 	
 	public MProcess getProcess() {
-		return MProcess.get(Env.getCtx(), getAD_Process_ID());
+		return MProcess.get(getAD_Process_ID());
 	}
 
 }
