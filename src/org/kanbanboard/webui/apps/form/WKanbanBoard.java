@@ -1042,7 +1042,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			}
 		} else if (Events.ON_TIMER.equals(e.getName())) {
 			//Auto refresh
-			if (kanbanBoardId != -1) {
+			if (kanbanBoardId != -1 && listKBanAuto!=null && !listKBanAuto.isEmpty()) {
 				//iDempiereConsulting __ 15/06/2017 -- Automatic refresh-delay 
 				nextIdKanbanAuto();
 				
