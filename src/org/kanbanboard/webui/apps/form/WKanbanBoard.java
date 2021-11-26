@@ -40,7 +40,6 @@ import org.adempiere.webui.apps.ProcessModalDialog;
 import org.adempiere.webui.apps.WProcessCtl;
 import org.adempiere.webui.component.Button;
 import org.adempiere.webui.component.Grid;
-import org.adempiere.webui.component.GridFactory;
 import org.adempiere.webui.component.Label;
 import org.adempiere.webui.component.ListItem;
 import org.adempiere.webui.component.Listbox;
@@ -61,6 +60,7 @@ import org.adempiere.webui.panel.IFormController;
 import org.adempiere.webui.session.SessionManager;
 import org.adempiere.webui.theme.ThemeManager;
 import org.adempiere.webui.util.ZKUpdateUtil;
+import org.adempiere.webui.window.WTextEditorDialog;
 import org.compiere.model.GridField;
 import org.compiere.model.GridFieldVO;
 import org.compiere.model.MPInstance;
@@ -75,12 +75,15 @@ import org.compiere.util.KeyNamePair;
 import org.compiere.util.Msg;
 import org.compiere.util.Util;
 import org.kanbanboard.apps.form.KanbanBoard;
+import org.kanbanboard.model.KanbanSwimlane;
 import org.kanbanboard.model.MKanbanAutoControl;
 import org.kanbanboard.model.MKanbanBoard;
 import org.kanbanboard.model.MKanbanCard;
 import org.kanbanboard.model.MKanbanParameter;
 import org.kanbanboard.model.MKanbanProcess;
 import org.kanbanboard.model.MKanbanStatus;
+import org.kanbanboard.model.MKanbanSwimlaneConfiguration;
+import org.zkoss.zhtml.Span;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.HtmlBasedComponent;
 import org.zkoss.zk.ui.Page;
@@ -120,6 +123,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 
 	private static final String KDB_PROCESS_MENUPOPUP = "KDB_ProcessMenu";
 	private static final String KDB_REFRESH_BUTTON_ID = "refreshKdb";
+	private static final String KDB_SWIMLANE_ATTRIBUTE = "KDB_SwimlaneValue";
+
 	protected final static String PROCESS_ID_KEY = "processId";
 
 	private CustomForm kForm = new CustomForm();;	
@@ -127,9 +132,9 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 	private Borderlayout	mainLayout	= new Borderlayout();
 
 	private Panel panel = new Panel();
-	private Grid gridLayout = GridFactory.newGridLayout();
 	private Label lProcess = new Label();
 	private Listbox kanbanListbox = ListboxFactory.newDropdownListbox();
+	private Listbox swimlaneListbox = null;
 	private int kanbanBoardId = -1;
 	private Button bRefresh = new Button();
 	private Timer timer;
@@ -152,12 +157,14 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 	private Map<WEditor, MKanbanParameter> mapEditorParameter = new HashMap<WEditor, MKanbanParameter>();
 	private Map<WEditor, MKanbanParameter> mapEditorToParameter = new HashMap<WEditor, MKanbanParameter>();
 
-	Map<Cell, MKanbanCard> mapCellColumn = new HashMap<Cell, MKanbanCard>();
-	Map<Cell, MKanbanStatus> mapEmptyCellField = new HashMap<Cell, MKanbanStatus>();
+	private Map<Cell, MKanbanCard> mapCellColumn = new HashMap<Cell, MKanbanCard>();
+	private Map<Cell, MKanbanStatus> mapEmptyCellField = new HashMap<Cell, MKanbanStatus>();
+	private Map<String, List<Row>> swimlaneRowsMap = new HashMap<String, List<Row>>();
 
-	Grid kanbanPanel;
-	Vlayout centerVLayout;
-	
+	private Grid kanbanPanel;
+	private Vlayout centerVLayout;
+	private int totalNumberOfColumns = 0;
+
 	private int m_adFormID = 0;
 	private List<MKanbanBoard> listKBanAuto = null;
 
@@ -194,28 +201,25 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 		kForm.setBorder("normal");
 
 		//North Panel
-		panel.appendChild(gridLayout);
 		lProcess.setText(Msg.translate(Env.getCtx(), "Process"));
-		Rows rows = gridLayout.newRows();
-		Row row = rows.newRow();
 		if (ThemeManager.isUseFontIconForImage())
 			bRefresh.setIconSclass("z-icon-Refresh");
 		else
 			bRefresh.setImage(ThemeManager.getThemeResource("images/Refresh16.png"));
 		bRefresh.setId(KDB_REFRESH_BUTTON_ID);
 		bRefresh.setTooltiptext(Msg.getMsg(Env.getCtx(), "Refresh"));
+		bRefresh.setHeight("70%");
 		bRefresh.addEventListener(Events.ON_CLICK, this);
 
 		northPanelHbox = new Hbox();
-		northPanelHbox.appendChild(lProcess.rightAlign());
+		northPanelHbox.setAlign("center");
+		northPanelHbox.appendChild(lProcess);
+		kanbanListbox.setHeight("70%");
 		northPanelHbox.appendChild(kanbanListbox);
 		northPanelHbox.appendChild(bRefresh);
-		Cell cell = new Cell();
-		cell.setColspan(3);
-		cell.setRowspan(1);
-		cell.setAlign("left");
-		cell.appendChild(northPanelHbox);
-		row.appendChild(cell);
+		panel.setHeight("100%");
+		northPanelHbox.setHeight("100%");
+		panel.appendChild(northPanelHbox);
 
 		North north = new North();
 		north.setSize("5%");
@@ -406,7 +410,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			
 			fillParameterEditors();
 			boardParamsDiv = new Div();
-			boardParamsDiv.setSclass("padding-left: 5px;");
+			boardParamsDiv.setHeight("100%");
+			boardParamsDiv.setStyle("padding-left: 5px; display: table-cell; vertical-align: middle;");
 			if (m_sEditors.size() > 1 && MSysConfig.getBooleanValue("KDB_GROUP_PARAMETERS", true, Env.getAD_Client_ID(Env.getCtx()))) {
 				bFilter.setLabel(Msg.getMsg(Env.getCtx(), "KDB_QuickFilter"));
 				if (ThemeManager.isUseFontIconForImage())
@@ -418,6 +423,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 				filterPopup = getParamPopup();
 				kForm.appendChild(filterPopup);
 				boardParamsDiv.appendChild(bFilter);
+				bFilter.setHeight("70%");
 				bFilter.addEventListener(Events.ON_CLICK, e -> {
 					filterPopup.open(bFilter, "after_start");
 				});
@@ -592,11 +598,11 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			kanbanPanel.setSpan("true");
 			initParameters();
 			initKanbanProcess();
+			initSwimlanes();
 
-			int numCols=0;
-			numCols = getNumberOfStatuses();
+			totalNumberOfColumns = getNumberOfStatuses();
 
-			if (numCols > 0) {
+			if (totalNumberOfColumns > 0) {
 				// set size in percentage per column leaving a MARGIN on right
 				Columns columns = new Columns();
 				if (menupopup == null)
@@ -626,6 +632,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 							auxheader = new Auxheader();
 							auxhead.appendChild(auxheader);
 						}
+						totalNumberOfColumns++;
 					}
 					column = new Column();
 					column.setId(Integer.toString(status.get_ID()));
@@ -664,81 +671,208 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 				createRows();	
 				kanbanPanel.appendChild(columns);
 				kanbanPanel.appendChild(auxhead);
-			}
-
-			if (numCols <= 0) {
+			} else {
 				Messagebox.show(Msg.getMsg(Env.getCtx(), "KDB_NoStatuses"));
 			}
 		}
 	}//createKanbanBoardPanel
+	
+	private void initSwimlanes() {
+		if (currentboardUsesSwimlane()) {
+			swimlaneListbox = ListboxFactory.newDropdownListbox();
+			
+			swimlaneListbox.appendItem("", -1);
+			for (MKanbanSwimlaneConfiguration swimlane : getSwimlaneConfigurationRecords()) {
+				ListItem item = swimlaneListbox.appendItem(swimlane.getName(), swimlane.getValue());
+				if (swimlane.equals(getActiveSwimlane()))
+					swimlaneListbox.setSelectedItem(item);
+			}
+			swimlaneListbox.addEventListener(Events.ON_SELECT, this);
+			
+			Span swimlaneDiv = new Span();
+			swimlaneDiv.setStyle("position: absolute; right: 0;top: 50%;transform: translate(0, -50%);");
+			Label label = new Label(Msg.getCleanMsg(Env.getCtx(), "GroupedBy"));
+			label.setStyle("padding:3px;");
+			swimlaneDiv.appendChild(label);
+			swimlaneListbox.setHeight("70%");
+			swimlaneDiv.appendChild(swimlaneListbox);
+			northPanelHbox.appendChild(swimlaneDiv);
+		}
+	}
 
 	public void createRows() {
 		mapCellColumn.clear();
 		mapEmptyCellField.clear();
 		Rows rows = kanbanPanel.newRows();
-		Row row = new Row();
 		resetStatusProperties();
-		int numberOfCards = getNumberOfCards();
-		while (numberOfCards > 0) {
-			for (MKanbanStatus status : getStatuses()) {
-				// [matica1] use background style instead of background-color and set transparent if no colors are set
-				if (getBackgroundColor() != null && !getBackgroundColor().equals("")) {
-					row.setStyle("background:" + getBackgroundColor() + ";");
-				} else {
-					row.setStyle("background: transparent;");
-				}
-				
-				if (!status.hasMoreCards()) {
-					if (status.hasQueue()) {
-						createEmptyCell(row,status);
+		if (paintSwimlanes()) {
+			createRowsWithSwimlanes(rows);
+		} else {
+			createRegularRows(rows);
+		}
+	}//createRows
+	
+	private void createRowsWithSwimlanes(Rows rows) {
+		Row row;
+
+		for (KanbanSwimlane swimlane : getSwimlanes()) {
+			if (!swimlane.isPrinted()) {
+				Row swimlaneRow = createSwimlaneRow(swimlane);
+				rows.appendChild(swimlaneRow);
+			}
+			while (swimlane.getTotalNumberOfCards() > 0) {
+				row = new Row();
+				for (MKanbanStatus status : getStatuses()) {
+					setRowStyle(row);
+					if (!status.hasMoreCards(swimlane)) {
+						createStatusCellWithNoCards(row, status);
+					} else {
+						if (status.hasQueue()) {
+							if (!status.hasMoreQueuedCards(swimlane)) {
+								createEmptyCell(row, status);
+								createCardCell(row, status.getCard(swimlane));
+								swimlane.removeOneCard();
+							} else {
+								createQueuedCardCell(row, status.getQueuedCard(swimlane));
+								swimlane.removeOneCard();
+								if (status.hasMoreStatusCards(swimlane)) {
+									createCardCell(row, status.getCard(swimlane));
+									swimlane.removeOneCard();
+								} else {
+									createEmptyCell(row,status);
+								}
+							}
+						} else {
+							createCardCell(row, status.getCard(swimlane));
+							swimlane.removeOneCard();
+						}
 					}
-					createEmptyCell(row,status);
+				}
+				rows.appendChild(row);
+				swimlaneRowsMap.get(swimlane.getValue()).add(row);
+			}
+		}
+	}
+	
+	private Row createSwimlaneRow(KanbanSwimlane swimlane) {
+		Row row = new Row();
+		createSwinlane(row, swimlane.getComponentLabel(), swimlane.getSummary());
+		row.setStyle(getSwimlaneCSS());
+		swimlane.setPrinted(true);
+		setCollapsibleProperties(row, swimlane.getValue());
+		return row;
+	}
+	
+	private void setCollapsibleProperties(Row row, String value) {
+		row.setDroppable("true");
+		row.addEventListener(Events.ON_DROP, this);
+		row.addEventListener(Events.ON_CLICK, this);
+		row.setAttribute(KDB_SWIMLANE_ATTRIBUTE, value);
+		swimlaneRowsMap.put(value, new ArrayList<Row>());
+	}
+	
+	private void setRowStyle(Row row) {
+		// [matica1] use background style instead of background-color and set transparent if no colors are set
+		if (!Util.isEmpty(getBackgroundColor())) {
+			row.setStyle("background:" + getBackgroundColor() + ";");
+		} else {
+			row.setStyle("background: transparent;");
+		}
+	}
+	
+	private void createRegularRows(Rows rows) {
+		int numberOfCards = getNumberOfCards();
+		Row row = new Row();
+		
+		while (numberOfCards > 0) {
+
+			for (MKanbanStatus status : getStatuses()) {
+				setRowStyle(row);
+
+				if (!status.hasMoreCards()) {
+					createStatusCellWithNoCards(row, status);
 				} else {
 					if (status.hasQueue()) {
 						if (!status.hasMoreQueuedCards()) {
 							createEmptyCell(row,status);
-							createCardCell(row,status);
+							createCardCell(row,status.getCard());
 							numberOfCards--;
 						} else {
-							MKanbanCard queuedCard = status.getQueuedCard();
-							Vlayout l = createCell(queuedCard);
-							row.appendCellChild(l);
-							if (!isReadWrite())
-								setOnlyReadCellProps(row.getLastCell(), queuedCard);
-							else
-								setQueuedCellProps(row.getLastCell(), queuedCard);
+							createQueuedCardCell(row, status.getQueuedCard());
 							numberOfCards--;
+
 							if (status.hasMoreStatusCards()) {
-								createCardCell(row,status);
+								createCardCell(row,status.getCard());
 								numberOfCards--;
 							} else {
 								createEmptyCell(row,status);
 							}
 						}
 					} else {
-						createCardCell(row,status);
-						numberOfCards--;	
+						createCardCell(row, status.getCard());
+						numberOfCards--;
 					}
 				}
 			}
 			rows.appendChild(row);
 			row=new Row();
 		}
-	}//createRows
+	}
+	
+	private void createStatusCellWithNoCards(Row row, MKanbanStatus status) {
+		if (status.hasQueue()) {
+			createEmptyCell(row, status);
+		}
+		createEmptyCell(row, status);
+	}
+	
+	private void createSwinlane(Row row, String label, String summary) {
+		Cell cell = new Cell();
+		Label swimlaneLabel = new Label(label+" ");
+		cell.setParent(row);
+		cell.appendChild(swimlaneLabel);
+		if (!Util.isEmpty(summary)) {
+			Html htmlCard = new Html();
+	        htmlCard.setContent(WTextEditorDialog.sanitize(summary));
+	        cell.appendChild(htmlCard);
+		}
+		cell.setColspan(totalNumberOfColumns);
+		row.appendChild(cell);
+	}
 
 	private void createEmptyCell(Row row, MKanbanStatus status) {
 		row.appendCellChild(createSpacer());
 		setEmptyCellProps(row.getLastCell(),status);	
 	}
-
-	private void createCardCell(Row row, MKanbanStatus status) {
-		MKanbanCard card = status.getCard();
-		Vlayout l = createCell(card);
-		row.appendCellChild(l);
+	
+	private void createCardCell(Row row, MKanbanCard card) {
+		Vlayout cardCell = createCell(card);
+		row.appendCellChild(cardCell);
 		if (isReadWrite())
 			setCellProps(row.getLastCell(), card);
 		else
 			setOnlyReadCellProps(row.getLastCell(), card);
+	}
+	
+	private void createQueuedCardCell(Row row, MKanbanCard card) {
+		Vlayout cardCell = createCell(card);
+		row.appendCellChild(cardCell);
+		if (isReadWrite())
+			setQueuedCellProps(row.getLastCell(), card);
+		else
+			setOnlyReadCellProps(row.getLastCell(), card);
+	}
+
+	private void setCellProps(Cell cell, MKanbanCard card) {
+		cell.setDraggable("true");
+		cell.setDroppable("true");
+		cell.addEventListener(Events.ON_DROP, this);
+		cell.addEventListener(Events.ON_CLICK, this);
+		cell.addEventListener(Events.ON_DOUBLE_CLICK, this);
+		cell.addEventListener(Events.ON_RIGHT_CLICK, this);
+		cell.setStyle(getCellCSSStyle(card));
+		cell.setContext(cardpopup);
+		mapCellColumn.put(cell, card);
 	}
 
 	private Vlayout createCell(MKanbanCard card) {
@@ -746,7 +880,6 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 		StringBuilder divStyle = new StringBuilder();
 		
 		divStyle.append("text-align: left; ");
-		divStyle.append("background-color:" + card.getCardColor() + "; ");
 		
 		if (!card.isQueued())
 			divStyle.append("cursor:hand; cursor:pointer; ");
@@ -754,6 +887,10 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 		if (getStdCardheight() != 0) {
 			div.setHeight(getStdCardheight() + "px");
 			divStyle.append("overflow:auto");
+		}
+		
+		if (!Util.isEmpty(card.getCardColor())) {
+			divStyle.append("margin-left: 15%;");
 		}
 		
 		div.setStyle(divStyle.toString());
@@ -782,31 +919,16 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 		return div;
 	}//CreateCell
 
-	private void setCellProps(Cell cell, MKanbanCard card) {
-		cell.setDraggable("true");
-		cell.setDroppable("true");
-		cell.addEventListener(Events.ON_DROP, this);
-		cell.addEventListener(Events.ON_CLICK, this);
-		cell.addEventListener(Events.ON_DOUBLE_CLICK, this);
-		cell.addEventListener(Events.ON_RIGHT_CLICK, this);
-		cell.setStyle("text-align: left;");
-		cell.setStyle("border-style: outset; ");
-		cell.setContext(cardpopup);
-		mapCellColumn.put(cell, card);
-	}
-
 	private void setQueuedCellProps(Cell cell, MKanbanCard card) {
 		cell.addEventListener(Events.ON_DOUBLE_CLICK, this);
-		cell.setStyle("text-align: left;");
-		cell.setStyle("border-style: outset; ");
+		cell.setStyle(getCellCSSStyle(card));
 		mapCellColumn.put(cell, card);
 	}
 
 	private void setOnlyReadCellProps(Cell cell, MKanbanCard card) {
 		cell.addEventListener(Events.ON_CLICK, this);
 		cell.addEventListener(Events.ON_DOUBLE_CLICK, this);
-		cell.setStyle("text-align: left;");
-		cell.setStyle("border-style: outset; ");
+		cell.setStyle(getCellCSSStyle(card));
 		mapCellColumn.put(cell, card);
 	}
 
@@ -901,6 +1023,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 
 		if (getBoardProcesses() != null && getBoardProcesses().size() > 0) {
 			boardButtonsDiv = new Div();
+			boardButtonsDiv.setHeight("100%");
+			boardButtonsDiv.setStyle("display: table-cell; vertical-align: middle;");
 			Button b;
 			for (MKanbanProcess process : getBoardProcesses()) {
 				b = new Button();
@@ -910,6 +1034,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 				b.setAttribute(PROCESS_ID_KEY, Integer.valueOf(process.getAD_Process_ID()));
 				b.setAttribute(PROCESS_TYPE, BOARD_PROCESS);
 				b.addEventListener(Events.ON_CLICK, this);
+				b.setHeight("70%");
 				boardButtonsDiv.appendChild(b);
 			}
 			northPanelHbox.appendChild(boardButtonsDiv);
@@ -938,14 +1063,10 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 
 		// select an item within the list -- set it active and show the properties
 		if (Events.ON_SELECT.equals(e.getName()) && e.getTarget() instanceof Listbox) {
-			if (kanbanListbox.getSelectedIndex() != -1) {
-
-				KeyNamePair kanbanKeyNamePair = null;
-				kanbanBoardId = -1;
-				kanbanKeyNamePair = (KeyNamePair)kanbanListbox.getSelectedItem().toKeyNamePair();	
-				if (kanbanKeyNamePair != null)
-					kanbanBoardId = kanbanKeyNamePair.getKey();
-				fullRefresh();
+			if (e.getTarget().equals(kanbanListbox)) {
+				selectKanbanBoard();
+			} else if (e.getTarget().equals(swimlaneListbox)) {
+				selectSwimlane();
 			}
 		}
 		// Check event ONDoubleCLICK on a cell Navigate into documents
@@ -954,7 +1075,7 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			int recordId = card.getRecordID();
 			int AD_Table_ID = getAd_Table_id();
 			zoom(recordId,AD_Table_ID);
-		} else if (e instanceof DropEvent ) {
+		} else if (e instanceof DropEvent) {
 			DropEvent me = (DropEvent) e;
 			Cell startItem = null;
 
@@ -962,9 +1083,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 				startItem = (Cell) me.getDragged();
 			} 
 
-			Cell endItem = null;
 			if (me.getTarget() instanceof Cell) {
-				endItem = (Cell) me.getTarget();
+				Cell endItem = (Cell) me.getTarget();
 
 				MKanbanCard startField = mapCellColumn.get(startItem);
 				MKanbanStatus startStatus = startField.getBelongingStatus(); 
@@ -974,16 +1094,21 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 				if (endField == null && mapEmptyCellField.get(me.getTarget()) != null) {
 					// check empty cells
 					endStatus= mapEmptyCellField.get(me.getTarget());
-				}
-
-				else
+				} else {
 					endStatus = endField.getBelongingStatus();
+				}
 
 				if (!swapCard(startStatus, endStatus, startField))
 					Messagebox.show(Msg.getMsg(Env.getCtx(), MKanbanCard.KDB_ErrorMessage));
-				else {
+				else 
 					repaintCards();
-				}
+			} else if (me.getTarget() instanceof Row) { //Swim lane Header
+				Row endSwimlane = (Row) me.getTarget();
+				MKanbanCard draggedCard = mapCellColumn.get(startItem);
+				if (!swapSwimlanes(draggedCard, endSwimlane))
+					Messagebox.show(Msg.getMsg(Env.getCtx(), MKanbanCard.KDB_ErrorMessage));
+				else 
+					repaintCards();
 			}
 		}
 		//Check Event on click for processes
@@ -1022,6 +1147,8 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 				}
 				runProcess(selectedItem.getAttribute(PROCESS_ID_KEY), getSaveKeys((String) selectedItem.getAttribute(PROCESS_TYPE),referenceID));
 			}
+		} else if (Events.ON_CLICK.equals(e.getName()) && e.getTarget() instanceof Row) {
+			collapseSwimlane((Row) e.getTarget());
 		}
 		//Right click on cards for associated process
 		else if (Events.ON_RIGHT_CLICK.equals(e.getName()) && (e.getTarget() instanceof Cell)) {
@@ -1050,6 +1177,37 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 			}
 		}
 	}//onEvent
+	
+	private void collapseSwimlane(Row selectedRow) {
+		String value = (String) selectedRow.getAttribute(KDB_SWIMLANE_ATTRIBUTE);
+		
+		for (Row row : swimlaneRowsMap.get(value))
+			row.setVisible(!row.isVisible());
+	}
+	
+	private boolean swapSwimlanes(MKanbanCard draggedCard, Row endSwimlane) {
+		String swimlaneValue = (String) endSwimlane.getAttribute(KDB_SWIMLANE_ATTRIBUTE); 
+		return swapSwimlanes(draggedCard, swimlaneValue);
+	}
+	
+	private void selectKanbanBoard() {
+		if (kanbanListbox.getSelectedIndex() != -1) {
+
+			KeyNamePair kanbanKeyNamePair = null;
+			kanbanBoardId = -1;
+			kanbanKeyNamePair = (KeyNamePair) kanbanListbox.getSelectedItem().toKeyNamePair();	
+			if (kanbanKeyNamePair != null)
+				kanbanBoardId = kanbanKeyNamePair.getKey();
+			fullRefresh();
+		}
+	}
+	
+	private void selectSwimlane() {
+		if (swimlaneListbox.getSelectedIndex() != -1) {
+			selectSwimlane(swimlaneListbox.getValue());
+			repaintCards();
+		}
+	}
 	
 	@Override
 	public void valueChange(ValueChangeEvent evt) {
@@ -1198,17 +1356,21 @@ public class WKanbanBoard extends KanbanBoard implements IFormController, EventL
 		centerVLayout.removeChild(kanbanPanel);
 		if (kanbanPanel.getRows() != null)
 			kanbanPanel.removeChild(kanbanPanel.getRows());
-		if (boardButtonsDiv != null) {
-			northPanelHbox.removeChild(boardButtonsDiv);
-			boardButtonsDiv = null;
-		}
-		if (boardParamsDiv != null) {
-			northPanelHbox.removeChild(boardParamsDiv);
-			boardParamsDiv = null;
-		}
+		cleanNorthPanel();
 		createKanbanBoardPanel();
 		centerVLayout.appendChild(kanbanPanel);
 	}
-
+	
+	private void cleanNorthPanel() {
+		List<Component> childsToRemove = new ArrayList<Component>();
+		for (Component component : northPanelHbox.getChildren()) {
+			if (!component.equals(lProcess) 
+					&& !component.equals(kanbanListbox) 
+					&& !component.equals(bRefresh))
+				childsToRemove.add(component);
+		}
+		for (Component component : childsToRemove)
+			northPanelHbox.removeChild(component);
+	}
 }
 
