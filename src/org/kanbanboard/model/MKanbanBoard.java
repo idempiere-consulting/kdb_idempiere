@@ -30,7 +30,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -42,8 +41,8 @@ import org.compiere.model.MRole;
 import org.compiere.model.MTable;
 import org.compiere.model.Query;
 import org.compiere.print.MPrintColor;
-import org.compiere.process.DocAction;
 import org.compiere.util.DB;
+import org.compiere.util.DisplayType;
 import org.compiere.util.Env;
 import org.compiere.util.Msg;
 import org.compiere.util.Util;
@@ -69,7 +68,6 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 	private boolean isRefList = true;
 	private boolean statusProcessed = false;
 	private String summarySql;
-	private HashMap<String, String> targetAction;
 	private MKanbanSwimlaneConfiguration activeSwimlaneRecord;
 	
 	private int lastColumnIndex;
@@ -94,36 +92,8 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 	}
 	
 	public void setBoardContent() {
- 		initTargetAction();
  		getStatuses();
  		setDefaultSwimlane();
-	}
-	
-	/**
-	 * Maps the DocStatus to the corresponding DocAction
-	 */
-	private void initTargetAction() {
-		targetAction = new HashMap<>();
-		
-		//No movement to this states manually
-		targetAction.put(DocAction.STATUS_Drafted, null);
-		targetAction.put(DocAction.STATUS_Invalid, null);
-		targetAction.put(DocAction.STATUS_Unknown, null);
-		targetAction.put(DocAction.STATUS_WaitingConfirmation, null);
-		targetAction.put(DocAction.STATUS_WaitingPayment, null);
-
-		//Map the DocStatus to DocAction 
-		targetAction.put(DocAction.STATUS_Completed, DocAction.ACTION_Complete);
-		targetAction.put(DocAction.STATUS_NotApproved, DocAction.ACTION_Reject);
-		targetAction.put(DocAction.STATUS_Voided, DocAction.ACTION_Void);
-		targetAction.put(DocAction.STATUS_Approved, DocAction.ACTION_Approve);		
-		targetAction.put(DocAction.STATUS_Reversed, DocAction.ACTION_Reverse_Correct);
-		targetAction.put(DocAction.STATUS_Closed, DocAction.ACTION_Close);
-		targetAction.put(DocAction.STATUS_InProgress, DocAction.ACTION_Prepare);
-	}
-	
-	public String getDocAction(String newDocStatus) {
-		return targetAction.get(newDocStatus);
 	}
 
 	public MTable getTable() {
@@ -152,6 +122,10 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 			columnId = getKDB_ColumnTable_ID();
 		return MColumn.get(columnId);
 	}
+	
+	public String getStatusColumnName() {
+		return getStatusColumn().getColumnName();
+	}
 
 	public void setPrintableNames() {
 
@@ -176,15 +150,8 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 				}
 			}
 		} else {
-			MTable table =  MTable.get(getCtx(),column.getReferenceTableName());
-			if (table != null) {
-				for (MKanbanStatus status : statuses) {
-					String name = table.get_Translation(column.getName()); //No esta funcionando, necesito traducir el nombre
-					if (name == null)
-						name=status.getName();
-
-					status.setPrintableName(name);
-				}
+			for (MKanbanStatus status : statuses) {
+				status.setPrintableName(status.getName());
 			}
 		}
 	}//setPrintableNames
@@ -286,15 +253,9 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 
 	public List<MKanbanPriority> getPriorityRules() {
 
-		if (priorityRules.size() == 0) {
+		if (priorityRules.isEmpty())
+			priorityRules = MKanbanPriority.getPriorityRules(getKDB_KanbanBoard_ID());
 
-			priorityRules = new Query(getCtx(), MKanbanPriority.Table_Name, " KDB_KanbanBoard_id = ? AND AD_Client_ID IN (0, ?) AND IsActive='Y' ", get_TrxName())
-			.setParameters(new Object[]{getKDB_KanbanBoard_ID(),Env.getAD_Client_ID(Env.getCtx())})
-			.setOnlyActiveRecords(true)
-			.setOrderBy("MinValue")    
- 			.list();
-			
-		}
 		return priorityRules;
 	}//getPriorityRules
 
@@ -503,7 +464,7 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 		return values.toString();
 	}//getInValues
 
-	boolean hasPriorityOrder() {
+	public boolean hasPriorityOrder() {
 		return !Util.isEmpty(getKDB_PrioritySQL());
 	}
 
@@ -717,5 +678,25 @@ public class MKanbanBoard extends X_KDB_KanbanBoard {
 				return swimlane;
 		}
 		return null;
+	}
+	
+	public boolean isDocActionKanbanBoard() {
+		return STATUSCOLUMN_DocStatus.equals(getStatusColumnName());
+	}	
+	
+	/**
+	 * Returns wether or not the kanban priority has a valid priority column
+	 * @return true if the priority SQL is a non-virtual column of the table and it is an integer
+	 */
+	public boolean isPriorityColumn() {
+		if (hasPriorityOrder()) {
+			String prioritySQL = getKDB_PrioritySQL();
+			MTable table = getTable();
+			if (table.columnExistsInDB(prioritySQL)) {
+				MColumn column = table.getColumn(prioritySQL);
+				return column.getAD_Reference_ID() == DisplayType.Integer;
+			}
+		}
+		return false;
 	}
 }

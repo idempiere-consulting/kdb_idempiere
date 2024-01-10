@@ -72,6 +72,10 @@ public class MKanbanStatus extends X_KDB_KanbanStatus {
 		this.kanbanBoard = kanbanBoard;
 	}
 
+	/**
+	 * Returns all non queued records
+	 * @return
+	 */
 	public List<MKanbanCard> getRecords() {
 		return records;
 	}
@@ -258,7 +262,7 @@ public class MKanbanStatus extends X_KDB_KanbanStatus {
 
 		String summarySql = kanbanBoard.getSummarySql();
 		String msgValue = kanbanBoard.get_Translation(MKanbanBoard.COLUMNNAME_KDB_SummaryMsg);
-		if (summarySql != null) {
+		if (summarySql != null && getMaxNumCards() > 0) {
 			summarySql = KanbanSQLUtils.replaceTokenWithValue(summarySql, STATUS_SUMMARY_TOKEN, "'" + getStatusValue() + "'");
 			summarySql = KanbanSQLUtils.replaceTokenWithValue(summarySql, MKanbanBoard.RECORDS_IDS, getStatusRecordsID());
 			return KanbanSQLUtils.getSummary(summarySql, msgValue);
@@ -428,6 +432,24 @@ public class MKanbanStatus extends X_KDB_KanbanStatus {
 	
 	private List<MKanbanCard> getCards(KanbanSwimlane swimlane) {
 	    return swimlaneCards.get(swimlane) != null ? swimlaneCards.get(swimlane) : new ArrayList<MKanbanCard>();
+	}
+
+	/**
+	 * @param card 
+	 * @return previous card or null if the card is the first one in the array
+	 */
+	public MKanbanCard getPreviousCard(MKanbanCard card) {
+		int clickedIndex = getRecords().indexOf(card);
+		return clickedIndex > 0 ? getRecords().get(clickedIndex-1) : null;
+	}
+	
+	/**
+	 * @param card 
+	 * @return next card or null if the card is the first one in the array
+	 */
+	public MKanbanCard getNextCard(MKanbanCard card) {
+		int clickedIndex = getRecords().indexOf(card);
+		return clickedIndex < getRecords().size() - 1 ? getRecords().get(clickedIndex+1) : null;
 	}
 
 }
