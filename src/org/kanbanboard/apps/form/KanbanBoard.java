@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.logging.Level;
 
 import org.adempiere.exceptions.AdempiereException;
+import org.compiere.model.MRole;
 import org.compiere.model.MTable;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
@@ -67,6 +68,8 @@ public class KanbanBoard {
 	private List<MKanbanStatus> statuses    = null;
 	private MKanbanStatus       activeStatus;
 	private String              isReadWrite = null;
+	private boolean             canRoleUpdate = false;
+	private boolean             roleAccessChecked = false;
 	private String              summarySql = null;		
 	
 	private KanbanBoardProcessController processController;
@@ -118,6 +121,7 @@ public class KanbanBoard {
 		return list;
 	}
 	
+<<<<<<< HEAD
 	//iDempiereConsulting __ 14/06/2017 -- Process aperti automaticamente in base all'utente loggato      
 	public int automaticKanban(){
 		String sql = null;
@@ -148,8 +152,16 @@ public class KanbanBoard {
 	}
 	//iDempiereConsulting __ 14/06/2017 
 	
-	public boolean isReadWrite(){
-		if(isReadWrite==null){
+	public boolean isReadOnly() {
+		if (!roleAccessChecked) {
+			canRoleUpdate = MRole.getDefault(Env.getCtx(), false).isColumnAccess(getAd_Table_id(), kanbanBoard.getStatusColumn().getAD_Column_ID(), false);
+			roleAccessChecked = true;
+		}
+		return !(canRoleUpdate && isReadWrite());
+	}
+
+	private boolean isReadWrite() {
+		if (isReadWrite == null) {
 			String sql = "SELECT isreadwrite FROM KDB_KanbanControlAccess " +
 					"WHERE KDB_KanbanBoard_ID = ? AND IsActive = 'Y' AND (AD_Role_ID = ? "
 					+ "                                                OR AD_Role_ID IN (SELECT Included_Role_ID " 
@@ -215,6 +227,7 @@ public class KanbanBoard {
 			statuses = null;
 			boardParameters = null;
 			isReadWrite = null;
+			roleAccessChecked = false;
 			kanbanBoard.setBoardContent();
 			getBoardParameters();
 			kanbanBoard.getKanbanCards();
