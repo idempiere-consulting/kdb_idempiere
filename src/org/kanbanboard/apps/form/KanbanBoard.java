@@ -121,7 +121,6 @@ public class KanbanBoard {
 		return list;
 	}
 	
-<<<<<<< HEAD
 	//iDempiereConsulting __ 14/06/2017 -- Process aperti automaticamente in base all'utente loggato      
 	public int automaticKanban(){
 		String sql = null;
